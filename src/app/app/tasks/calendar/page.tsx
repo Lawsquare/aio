@@ -14,9 +14,7 @@ interface Task {
 
 export default function TaskCalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
-  
-  // 模拟任务数据
-  const tasks: Task[] = [
+  const [tasks, setTasks] = useState<Task[]>([
     {
       id: '1',
       title: '数学作业第3章',
@@ -49,7 +47,16 @@ export default function TaskCalendarPage() {
       category: '历史',
       is_completed: true,
     },
-  ]
+  ])
+
+  // 切换任务完成状态
+  const handleToggleTask = (id: string) => {
+    setTasks(tasks.map(task =>
+      task.id === id
+        ? { ...task, is_completed: !task.is_completed }
+        : task
+    ))
+  }
 
   // 获取当前月份的日期
   const year = currentDate.getFullYear()
