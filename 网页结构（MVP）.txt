@@ -1,0 +1,125 @@
+Excellent decision. Starting with a well-defined, minimal viable product (MVP) is the single most important factor for success. It allows you to build fast, get feedback, and iterate without getting bogged down.
+
+This MVP is designed to be the **absolute core loop of value** for a single student, while laying the perfect foundation for all the advanced features you envision.
+
+Here is the design document for your MVP.
+
+---
+
+## AIO 智能教育平台 - MVP v0.1 设计文档
+
+### 1. MVP 核心原则与假设
+
+*   **核心原则**: **"一个学生，一个任务列表，一个AI伙伴"**。我们只构建能服务好一个独立学生的核心体验。
+*   **核心假设 (要验证的)**: 学生会发现一个能将**简单任务管理**与**即时AI问答**结合在同一界面的平台是有价值的，并愿意持续使用。
+
+### 2. MVP 目标用户
+
+*   **唯一用户角色**: **学生** (Student)。
+*   **用户画像**: 一位积极主动的学生，希望有一个简洁的地方来组织自己的学习任务，并在遇到问题时能快速得到 AI 的帮助，而不需要在多个应用之间切换。
+
+### 3. 功能范围 (In-Scope vs. Out-of-Scope)
+
+#### ✅ **MVP 范围内 (In-Scope):**
+
+1.  **用户认证 (Student Only)**
+    *   学生可以通过邮箱密码进行注册和登录。
+    *   受保护的应用路由，未登录用户无法访问。
+
+2.  **极简任务管理 (My Tasks)**
+    *   学生可以为自己**创建**、**查看**、**编辑**和**删除**学习任务。
+    *   可以标记任务为**已完成/未完成**。
+    *   这是一个私人的任务列表，没有协作和分配功能。
+
+3.  **通用 AI 助手 (AI Companion)**
+    *   一个全局可用的、悬浮在右下角的 AI 聊天窗口。
+    *   可以与通用的 LLM (如 GPT-3.5/4) 进行对话。
+    *   **关键**: 自动保存用户与 AI 的聊天记录，以便回顾。
+
+#### ❌ **明确排除在 MVP 外 (Out-of-Scope):**
+
+*   **所有教师和管理员角色**: 这是最大的简化，将复杂度降低 80%。
+*   **复杂的 OKR/PDP 框架**: 我们从简单的“任务”开始，未来再演进为 OKR。
+*   **RAG (检索增强生成)**: MVP 中的 AI 是一个“通用大脑”，还不认识你上传的课程资料。这是 v0.2 的核心功能。
+*   **数据看板与分析**: 没有仪表盘，没有图表。
+*   **通知系统**: 没有邮件、短信或站内信提醒。
+*   **协作功能**: 没有任务分配、评论、@他人等功能。
+*   **n8n 工作流**: MVP 中所有逻辑都在前端和简单的 API Route 中处理。
+
+### 4. MVP 技术架构 (L.I.G.H.T. 的极简实现)
+
+*   **L (Lean Backend)**: 几乎为零。仅依靠 **Supabase 的 Auth 中间件**来保护路由。
+*   **I (Intelligent Frontend)**: **Next.js (App Router)** 将是所有逻辑的核心。
+    *   使用 **Vercel AI SDK** 的 `useChat` hook 实现 AI 对话。
+    *   直接调用 Supabase JS 客户端进行任务的 CRUD 操作。
+*   **G (Git-driven Workflow)**: 严格遵循。代码在 **GitHub**，部署在 **Vercel**。
+*   **H (Hyper-scalable Data)**: **Supabase** 作为数据库。Schema 极度简化。
+*   **T (Templated AI Agents)**: 极度简化。只有一个**简单的 `/api/chat` 路由**，直接调用 OpenAI API。没有复杂的编排。
+
+### 5. MVP 数据库 Schema
+
+在 Supabase 中，你只需要创建以下 3 个核心表：
+
+1.  **`users`**
+    *   `id` (uuid, references auth.users): 主键
+    *   `email` (text): 用户邮箱
+    *   `created_at` (timestampz)
+    *   `role` (text, default: 'student'): **为未来扩展预留的字段**
+
+2.  **`tasks`**
+    *   `id` (uuid, default: gen_random_uuid()): 主键
+    *   `user_id` (uuid, references users.id): 任务所属用户
+    *   `title` (text): 任务标题
+    *   `is_completed` (boolean, default: false): 是否完成
+    *   `created_at` (timestampz)
+
+3.  **`chat_messages`**
+    *   `id` (uuid, default: gen_random_uuid()): 主键
+    *   `user_id` (uuid, references users.id): 消息所属用户
+    *   `content` (text): 消息内容
+    *   `sender` (text): 发送者 ('user' 或 'ai')
+    *   `created_at` (timestampz)
+
+### 6. MVP 页面与组件结构
+
+```markdown
+# AIO 平台 - MVP v0.1 页面结构
+
+## ─ / (公共路由)
+- **/login**: 登录/注册页面 (使用 Supabase Auth UI 组件)
+
+## ─ /app (受保护的应用路由)
+- **/tasks**: **应用核心页面**
+  - 左侧: 一个简单的任务列表，显示所有任务。
+  - 包含一个输入框用于添加新任务。
+  - 每个任务项前面有一个复选框，可以切换完成状态。
+  - 每个任务项后面有一个删除按钮。
+  - 这是用户登录后看到的默认页面。
+
+## ─ 全局组件 (在 /app 的布局中加载)
+- **/components/ai/ChatAssistant.tsx**: **AI 助手**
+  - 悬浮在页面右下角的全局组件。
+  - 点击后展开为一个聊天界面。
+  - 负责处理与 `/api/chat` 的所有通信和状态管理。
+```
+
+### 7. 未来的扩展路径 (Roadmap from MVP)
+
+这个 MVP 设计的最大优势是它的扩展性。
+
+*   **v0.2 - "AI 知识增强"**:
+    *   **引入 RAG**: 允许学生上传一份 PDF 文档，AI 助手将能基于该文档内容回答问题。这是从“通用 AI”到“专业 AI”的第一步。
+    *   需要增加 `documents` 表。
+    *   需要引入 `n8n` 来处理文档的上传、切块和向量化工作流。
+
+*   **v0.3 - "教师的介入"**:
+    *   **引入教师角色**: 教师可以注册并创建班级。
+    *   教师可以查看其班级内所有学生的任务完成情况。
+    *   教师可以发布**班级公告**。
+
+*   **v1.0 - "OKR 与协作"**:
+    *   **引入完整的 OKR 系统**: 将简单的 `tasks` 表升级为 `objectives`, `key_results`, `tasks` 的三级结构。
+    *   引入协作功能，如任务分配和评论。
+    *   引入数据看板。
+
+这个 MVP 方案为您提供了一个清晰、可控的起点。您可以非常有信心地开始您的开发之旅！
